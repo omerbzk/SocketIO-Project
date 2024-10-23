@@ -23,10 +23,11 @@ public class SocketModule {
     private DataListener<Message> onMessageReceived(){
         return (senderClient,data,ackSender)->{
             log.info(String.format("%s -> %s",senderClient.getSessionId(),data.getContent()));
-            senderClient.getNamespace().getAllClients().forEach(
+            String room = senderClient.getHandshakeData().getSingleUrlParam("room");
+            senderClient.getNamespace().getRoomOperations(room).getClients().forEach(
                     x->{
                         if (!x.getSessionId().equals(senderClient.getSessionId())){
-                            x.sendEvent("get_message",data.getContent());
+                            x.sendEvent("get_message",data);
                         }
                     }
             );
@@ -35,12 +36,21 @@ public class SocketModule {
 
     private ConnectListener onConnected(){
         return client -> {
+            String room = client.getHandshakeData().getSingleUrlParam("room");
+            client.joinRoom(room);
+            client.getNamespace().getRoomOperations(room)
+                            .sendEvent("get_message",String.format("%s connected to -> %s",
+                                    client.getSessionId(),room));
             log.info(String.format("SocketID %s connected",client.getSessionId().toString()));
         };
     }
 
     private DisconnectListener onDisconnected(){
         return client -> {
+            String room = client.getHandshakeData().getSingleUrlParam("room");
+            client.getNamespace().getRoomOperations(room)
+                    .sendEvent("get_message",String.format("%s disconnected from -> %s",
+                            client.getSessionId(),room));
             log.info(String.format("SocketID %s disconnected",client.getSessionId().toString()));
         };
     }
